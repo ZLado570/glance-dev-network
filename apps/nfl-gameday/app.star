@@ -4,7 +4,8 @@
 # stream and identifies itself before its data does. Page 1 is a game card:
 # both club crests at 24px facing a single hero (the score when the game is
 # live or final, the local kickoff time when it isn't), records under the
-# abbreviations, TV network and betting line in the footline. Page 2 is the
+# abbreviations, the broadcaster's pixel mark and the betting line in the
+# footline. Page 2 is the
 # last three results as W/L rows beside a right-hand record hero. Page 3 is
 # the injury report, worst news first, three rows at a time. Black ground
 # throughout; white for live numbers, gray for labels, green/amber/red kept
@@ -434,6 +435,140 @@ def chrome(c, team, label, meta, meta_color):
 
 # ---------------------------------------------------------------- pages
 
+# ------------------------------------------------------------- TV networks
+# The footline shows the broadcaster as its mark, not its name. Every mark is
+# string art (costs no asset, stays pixel-perfect) drawn in a 7px band. The
+# 2026 feed carries exactly: FOX, CBS, NBC, ESPN, Prime Video, ABC, NFL Net,
+# Netflix — plus prefix matches for variants (ESPN2, ESPN Unlmtd, Peacock).
+
+FOX_ART = [  # slab-weight letters, 2px strokes, so it reads as the mark
+    "XXXXX..XXXX..XX..XX",
+    "XX....XXXXXX.XX..XX",
+    "XXXX..XX..XX..XXXX.",
+    "XX....XX..XX...XX..",
+    "XX....XX..XX..XXXX.",
+    "XX....XXXXXX.XX..XX",
+    "XX.....XXXX..XX..XX",
+]
+
+CBS_ART = [  # the eye
+    "....XXXXX....",
+    "..XX..X..XX..",
+    ".X...XXX...X.",
+    "X...XXXXX...X",
+    ".X...XXX...X.",
+    "..XX..X..XX..",
+    "....XXXXX....",
+]
+
+# Six feathers folded into a fan over a white body.
+NBC_ART = [
+    "....rr.pp....",
+    "..oorr.ppbb..",
+    "..oorr.ppbb..",
+    "yyoorr.ppbbgg",
+    "yyoorr.ppbbgg",
+    ".....www.....",
+    "......w......",
+]
+NBC_LEG = {"y": "#FCB711", "o": "#F37021", "r": "#CC004C",
+           "p": "#8A7CFF", "b": "#0089D0", "g": "#0DB14B", "w": "white"}
+
+NFL_ART = [  # the shield
+    "wwwwwwwww",
+    "wrrrrrrrw",
+    "wbbbbbbbw",
+    "wbbbbbbbw",
+    ".wbbbbbw.",
+    "..wbbbw..",
+    "....w....",
+]
+NFL_LEG = {"w": "white", "r": "#D50A0A", "b": "#1E5AC8"}
+
+NETFLIX_ART = [  # the ribbon N
+    "XX..XX",
+    "XXX.XX",
+    "XXX.XX",
+    "XX.XXX",
+    "XX.XXX",
+    "XX..XX",
+    "XX..XX",
+]
+
+PRIME_C = "#00A8E1"
+
+def draw_tv(c, name, x, y, dry = False):
+    """The network's mark, top-left (x, y), 7px tall. Returns the width drawn
+    (0 = no mark known; the caller falls back to text). `dry` measures without
+    drawing, so the footline can be centered before anything is committed."""
+    n = str(name).upper().strip()
+    if n.startswith("FOX"):
+        if not dry:
+            c.sprite(FOX_ART, x, y, color = "white")
+        return 19
+    if n.startswith("CBS"):
+        w = 13 + 3 + c.text_width("CBS", "4x5")
+        if not dry:
+            c.sprite(CBS_ART, x, y, color = "white")
+            c.text("CBS", x + 16, y + 1, font = "4x5", color = "white")
+        return w
+    if n.startswith("NBC"):
+        w = 13 + 3 + c.text_width("NBC", "4x5")
+        if not dry:
+            c.sprite(NBC_ART, x, y, legend = NBC_LEG)
+            c.text("NBC", x + 16, y + 1, font = "4x5", color = "white")
+        return w
+    if n.startswith("ESPN"):
+        # The wordmark is the logo; red is the brand. Variants (ESPN2,
+        # ESPN UNLMTD) keep their suffix in quiet white.
+        w = c.text_width("ESPN", "4x7")
+        if not dry:
+            c.text("ESPN", x, y, font = "4x7", color = "red")
+        rest = n[4:].strip()
+        if rest != "":
+            if not dry:
+                c.text(clip(c, rest, "4x5", 30), x + w + 2, y + 1,
+                       font = "4x5", color = "white")
+            w = w + 2 + c.text_width(clip(c, rest, "4x5", 30), "4x5")
+        return w
+    if n.startswith("ABC"):
+        # abc is the one lowercase wordmark on television; 5x5 is the one
+        # font with lowercase glyphs.
+        if not dry:
+            c.text("abc", x, y + 1, font = "5x5", color = "white")
+        return c.text_width("abc", "5x5")
+    if n.startswith("NFL"):
+        w = 9 + 3 + c.text_width("NFL NET", "4x5")
+        if not dry:
+            c.sprite(NFL_ART, x, y, legend = NFL_LEG)
+            c.text("NFL NET", x + 12, y + 1, font = "4x5", color = "white")
+        return w
+    if n.startswith("NETFLIX"):
+        if not dry:
+            c.sprite(NETFLIX_ART, x, y, color = "red")
+        return 6
+    if n.find("PRIME") >= 0 or n.startswith("AMAZON"):
+        w = c.text_width("PRIME", "4x5")
+        if not dry:
+            c.text("PRIME", x, y, font = "4x5", color = PRIME_C)
+            # the smile, curling up at its right end (kept a row clear of
+            # the wordmark so the tip never touches a glyph)
+            c.hline(x + 1, y + 6, w - 4, PRIME_C)
+            c.pixel(x + w - 3, y + 5, PRIME_C)
+            c.pixel(x + w - 2, y + 5, PRIME_C)
+        return w
+    if n.find("PEACOCK") >= 0:
+        w = 13 + 3 + c.text_width("PEACOCK", "4x5")
+        if not dry:
+            for i in range(6):
+                col = ["#FCB711", "#F37021", "#CC004C",
+                       "#8A7CFF", "#0089D0", "#0DB14B"][i]
+                dy = [2, 1, 0, 0, 1, 2][i]
+                c.rect(x + i * 2, y + dy, x + i * 2 + 1, y + dy + 1, fill = col)
+            c.text("PEACOCK", x + 16, y + 1, font = "4x5", color = "white")
+        return w
+    return 0
+
 def accent_of(abbr):
     """A club's accent color by scoreboard abbreviation (for the opponent's
     side of the card); a neutral slate when we don't know the club."""
@@ -554,27 +689,42 @@ def game(c, ctx):
 
     # Center hero + footline. 62..130 is what's left between the abbr blocks;
     # "45-42" at 10x16 is 54px, so the ladder only drops for weird strings.
+    # The hero sits at y8 so the 7px footline band (y25..31) keeps a 1px gap.
     if state == "pre":
         f, t = fit(c, parts[2], ["10x16", "6x8"], 66)
-        c.text(t, 96, 9 + (16 - FONTH[f]) // 2, font = f, color = INK,
+        c.text(t, 96, 8 + (16 - FONTH[f]) // 2, font = f, color = INK,
                align = "center")
-        foot = ev["network"]
-        if ev["odds"] != "":
-            foot = foot + ("  " if foot != "" else "") + ev["odds"]
-        if foot == "":
-            foot = "AT " + home["abbr"]
-        c.text(clip(c, foot, "4x5", 66), 96, 27, font = "4x5", color = DIM,
-               align = "center")
+        # Footline: the broadcaster's mark + the betting line, centered as
+        # one unit. When both can't fit the 68px, the mark wins the pixels.
+        netw = draw_tv(c, ev["network"], 0, 0, dry = True)
+        oddsw = c.text_width(ev["odds"], "4x5") if ev["odds"] != "" else 0
+        total = netw + (3 + oddsw if netw > 0 and oddsw > 0 else oddsw)
+        if total > 68 and netw > 0:
+            oddsw = 0
+            total = netw
+        if netw > 0:
+            x0 = 96 - total // 2
+            w = draw_tv(c, ev["network"], x0, 25)
+            if oddsw > 0:
+                c.text(ev["odds"], x0 + w + 3, 26, font = "4x5", color = DIM)
+        else:
+            foot = ev["network"]
+            if ev["odds"] != "":
+                foot = foot + ("  " if foot != "" else "") + ev["odds"]
+            if foot == "":
+                foot = "AT " + home["abbr"]
+            c.text(clip(c, foot, "4x5", 66), 96, 26, font = "4x5", color = DIM,
+                   align = "center")
     else:
         f, t = fit(c, away["score"] + "-" + home["score"], ["10x16", "6x8"], 66)
-        c.text(t, 96, 9 + (16 - FONTH[f]) // 2, font = f, color = INK,
+        c.text(t, 96, 8 + (16 - FONTH[f]) // 2, font = f, color = INK,
                align = "center")
         if state == "in":
             foot = ev["down"] if ev["down"] != "" else ev["detail"]
-            c.text(clip(c, foot, "4x5", 66), 96, 27, font = "4x5",
+            c.text(clip(c, foot, "4x5", 66), 96, 26, font = "4x5",
                    color = "amber", align = "center")
         else:
-            c.text(clip(c, parts[1], "4x5", 66), 96, 27, font = "4x5",
+            c.text(clip(c, parts[1], "4x5", 66), 96, 26, font = "4x5",
                    color = DIM, align = "center")
 
 def results(c, ctx):
