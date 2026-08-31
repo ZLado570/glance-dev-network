@@ -804,29 +804,46 @@ def team_abbr_of(team):
             return abbr
     return "?"
 
-# Injury statuses, worst news first: [chip text, color, sort rank].
+# Active / inactive don't need a word — a check or a cross says it faster.
+CHECK_ART = [
+    "....X",
+    "...XX",
+    "X.XX.",
+    "XXX..",
+    ".X...",
+]
+CROSS_ART = [
+    "X...X",
+    ".X.X.",
+    "..X..",
+    ".X.X.",
+    "X...X",
+]
+
+# Injury statuses, worst news first: [chip text, color, sort rank, glyph].
+# A non-empty glyph replaces the chip text with pixel art (check/cross).
 # "inactive" is checked before the generic buckets because it CONTAINS
 # "active" — and "active" itself appears in the feed for players who just
 # returned from an injury, which is good news, not amber news.
 def severity(status):
     s = str(status).lower()
     if s.find("reserve") >= 0 or s == "ir":
-        return ["IR", "red", 0]
+        return ["IR", "red", 0, ""]
     if s.find("inactive") >= 0:
-        return ["OUT", "red", 1]
+        return ["", "red", 1, "cross"]
     if s.find("out") >= 0:
-        return ["OUT", "red", 1]
+        return ["OUT", "red", 1, ""]
     if s.find("physically unable") >= 0 or s.find("pup") >= 0:
-        return ["PUP", "red", 2]
+        return ["PUP", "red", 2, ""]
     if s.find("doubtful") >= 0:
-        return ["DOUB", "orange", 3]
+        return ["DOUB", "orange", 3, ""]
     if s.find("question") >= 0:
-        return ["QUES", "amber", 4]
+        return ["QUES", "amber", 4, ""]
     if s.find("day") >= 0:
-        return ["DTD", "green", 5]
+        return ["DTD", "green", 5, ""]
     if s.find("active") >= 0:
-        return ["ACT", "green", 7]
-    return [str(status).upper()[:4], "amber", 6]
+        return ["", "green", 7, "check"]
+    return [str(status).upper()[:4], "amber", 6, ""]
 
 def injuries(c, ctx):
     team = my_team(ctx)
@@ -877,8 +894,13 @@ def injuries(c, ctx):
         c.text(clip(c, r["name"], "4x5", 72), SAFE_L + 5, y, font = "4x5",
                color = INK)
         c.text(clip(c, r["pos"], "4x5", 14), 86, y, font = "4x5", color = DIM)
-        c.text(clip(c, r["sev"][0], "4x5", 22), 104, y, font = "4x5",
-               color = r["sev"][1])
+        if r["sev"][3] == "check":
+            c.sprite(CHECK_ART, 104, y, color = "green")
+        elif r["sev"][3] == "cross":
+            c.sprite(CROSS_ART, 104, y, color = "red")
+        else:
+            c.text(clip(c, r["sev"][0], "4x5", 22), 104, y, font = "4x5",
+                   color = r["sev"][1])
         c.text(clip(c, r["part"], "4x5", SAFE_R - 130), 130, y, font = "4x5",
                color = DIM)
         y = y + 7
