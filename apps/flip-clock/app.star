@@ -103,7 +103,7 @@ def _fh(font):
     return {"16x20": 20, "10x16": 16, "7x12": 12, "6x8": 8, "5x7": 7, "4x5": 5}[font]
 
 
-def board(c, cells, accent, gap):
+def board(c, cells, accent, gap, pad = 6):
     """Lay a row of cards out centred on the panel.
 
     A cell is [text, font]: each card is sized to its own contents AND its own
@@ -112,11 +112,16 @@ def board(c, cells, accent, gap):
     ones -- the meridiem used to be loose text pinned to the right edge, which
     read as a label ABOUT the clock rather than a flap of it. Sizing every card
     for two digits, meanwhile, made the date board's words spill out of their
-    flaps."""
+    flaps.
+
+    `pad` is the flap's horizontal padding, 3px a side by default. The 64
+    date board runs it at 2 because that is exactly what buys a full-size
+    month: AUG and a two-digit day are 67 of the panel's 64 columns at 3px a
+    side and 63 at 2px."""
     widths, heights = [], []
     total = 0
     for cell in cells:
-        w = c.text_width(cell[0], cell[1]) + 6
+        w = c.text_width(cell[0], cell[1]) + pad
         widths.append(w)
         heights.append(_fh(cell[1]) + 6)
         total += w
@@ -152,10 +157,14 @@ def date(c, ctx):
         board(c, [[DOW[t["weekday"]], "10x16"], [MON[t["month"] - 1], "10x16"],
                   [str(t["day"]), "10x16"]], accent, 4)
     else:
-        # The day of the month is what anyone actually reads off a date, so it
-        # takes the clock's own 10x16 face and the month stays a small flap
-        # beside it: 56 of the 64 columns. Three word-flaps do not fit at any
-        # size, and the weekday was the one part still floating loose rather
-        # than riding a flap, so it goes rather than break the object.
-        board(c, [[MON[t["month"] - 1], "6x8"], [str(t["day"]), "10x16"]],
-              accent, 3)
+        # Month and day both wear the clock's own 10x16 face, so the date page
+        # reads at exactly the size the clock does. It only fits because the
+        # flaps run 2px of padding a side instead of 3: at 3 the pair is 67 of
+        # the 64 columns, at 2 it is 63. A two-digit day therefore reaches the
+        # panel edge, which is the price of a full-size three-letter month --
+        # and a two-letter month would fit at 3px but turns MR/MY and JN/JL
+        # into a guess. The weekday was the one part still floating loose
+        # rather than riding a flap; three word-flaps do not fit at any size,
+        # so it goes rather than break the object.
+        board(c, [[MON[t["month"] - 1], "10x16"], [str(t["day"]), "10x16"]],
+              accent, 3, 4)
