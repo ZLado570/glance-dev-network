@@ -103,7 +103,7 @@ def _fh(font):
     return {"16x20": 20, "10x16": 16, "7x12": 12, "6x8": 8, "5x7": 7, "4x5": 5}[font]
 
 
-def board(c, cells, accent, gap):
+def board(c, cells, accent, gap, pad = 6):
     """Lay a row of cards out centred on the panel.
 
     A cell is [text, font]: each card is sized to its own contents AND its own
@@ -112,11 +112,16 @@ def board(c, cells, accent, gap):
     ones -- the meridiem used to be loose text pinned to the right edge, which
     read as a label ABOUT the clock rather than a flap of it. Sizing every card
     for two digits, meanwhile, made the date board's words spill out of their
-    flaps."""
+    flaps.
+
+    `pad` is the flap's horizontal padding, 3px a side by default. The 64
+    date board runs it at 2 because that is exactly what buys a full-size
+    month: AUG and a two-digit day are 67 of the panel's 64 columns at 3px a
+    side and 63 at 2px."""
     widths, heights = [], []
     total = 0
     for cell in cells:
-        w = c.text_width(cell[0], cell[1]) + 6
+        w = c.text_width(cell[0], cell[1]) + pad
         widths.append(w)
         heights.append(_fh(cell[1]) + 6)
         total += w
