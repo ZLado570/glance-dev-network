@@ -106,7 +106,7 @@ def _fh(font):
 def board(c, cells, accent, gap, pad = 6):
     """Lay a row of cards out centred on the panel.
 
-    A cell is [text, font]: each card is sized to its own contents AND its own
+    A cell is [text, font] or [text, font, gauge]: each card is sized to its own contents AND its own
     face, and every card is centred on the panel's middle row. Carrying the
     face per cell is what lets a small flap sit in the same rank as the big
     ones -- the meridiem used to be loose text pinned to the right edge, which
@@ -121,7 +121,15 @@ def board(c, cells, accent, gap, pad = 6):
     widths, heights = [], []
     total = 0
     for cell in cells:
-        w = c.text_width(cell[0], cell[1]) + pad
+        # A flap is sized to the WIDEST thing it will ever hold, not to what it
+        # holds now. 10x16 is not monospace -- I, T, Y and 1 are 9px cells
+        # against everyone else's 10 -- so sizing to the current text made the
+        # flap breathe as the value changed: DEC|25 came out 64 columns wide
+        # and AUG|31 63, and at 11 minutes past the hour both clock flaps
+        # narrowed. A flap is a physical object: the digit on it changes and
+        # the flap does not.
+        gauge = cell[2] if len(cell) > 2 else cell[0]
+        w = c.text_width(gauge, cell[1]) + pad
         widths.append(w)
         heights.append(_fh(cell[1]) + 6)
         total += w
@@ -150,7 +158,7 @@ def clock(c, ctx):
         # pages keep one rhythm: the date is forced to 2px to fit a full-size
         # three-letter month, and a roomier clock beside it read as a
         # different set of flaps rather than the same object.
-        board(c, [[hh, "10x16"], [mm, "10x16"]], accent, 3, 4)
+        board(c, [[hh, "10x16", "00"], [mm, "10x16", "00"]], accent, 3, 4)
 
 
 def date(c, ctx):
@@ -170,5 +178,5 @@ def date(c, ctx):
         # into a guess. The weekday was the one part still floating loose
         # rather than riding a flap; three word-flaps do not fit at any size,
         # so it goes rather than break the object.
-        board(c, [[MON[t["month"] - 1], "10x16"], [str(t["day"]), "10x16"]],
-              accent, 3, 4)
+        board(c, [[MON[t["month"] - 1], "10x16", "SEP"],
+                  [str(t["day"]), "10x16", "00"]], accent, 3, 4)
