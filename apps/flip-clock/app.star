@@ -146,7 +146,11 @@ def clock(c, ctx):
         board(c, [[hh, "16x20"], [mm, "16x20"],
                   ["AM" if t["hour"] < 12 else "PM", "6x8"]], accent, 4)
     else:
-        board(c, [[hh, "10x16"], [mm, "10x16"]], accent, 4)
+        # Same 2px flap padding and 3px gap the date board runs, so the two
+        # pages keep one rhythm: the date is forced to 2px to fit a full-size
+        # three-letter month, and a roomier clock beside it read as a
+        # different set of flaps rather than the same object.
+        board(c, [[hh, "10x16"], [mm, "10x16"]], accent, 3, 4)
 
 
 def date(c, ctx):
