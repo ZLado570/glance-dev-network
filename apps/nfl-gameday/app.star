@@ -588,6 +588,16 @@ BALL = [
 ]
 BALL_C = "#C87830"
 
+# A little house marks HOME games on the results cards — the picture instead
+# of a VS/AT word.
+HOUSE = [
+    "..X..",
+    ".XXX.",
+    "XXXXX",
+    ".XXX.",
+    ".X.X.",
+]
+
 def wash(c, x0, x1, accent, toward_right):
     """A near-black wash of a club's color behind its side of the game card —
     16% of the accent fading to the black ground toward the center hero. This
@@ -764,34 +774,31 @@ def results(c, ctx):
         message(c, "NO GAMES PLAYED YET", "RESULTS LAND AFTER WEEK 1", "green")
         return
 
-    off = zone_offset(ctx)
-
-    # Left: newest three results. Right of the divider: the record hero with
-    # the club crest, so the page still says whose record it is at 30 ft.
-    y = 10
-    for g in games[:3]:
+    # Left: the last three results as mini-cards — the opponent's crest under
+    # a result-colored bar, the score beneath it (colored the same way, so
+    # the color and the number can't disagree), a small pixel house marking
+    # home games. Oldest to newest, so the timeline reads left to right into
+    # the record hero. The crest is the whole "who" — no W/AT/abbr text.
+    take = 3 if len(games) >= 3 else len(games)
+    x = 6
+    for k in range(take):
+        g = games[take - 1 - k]              # games is newest-first
         me = g["home"] if g["mine_at_home"] else g["away"]
         opp = g["away"] if g["mine_at_home"] else g["home"]
         won = me["winner"] and not opp["winner"]
         tied = me["score"] == opp["score"]
-        letter = "T" if tied else ("W" if won else "L")
-        lcolor = "gray" if tied else ("green" if won else "red")
-        c.rect(SAFE_L, y + 1, SAFE_L + 1, y + 2, fill = lcolor)
-        when = parse_iso_unix(g["date"])
-        date = local_parts(when, off)[1] if when >= 0 else ""
-        x = SAFE_L + 5
-        c.text(date, x, y, font = "4x5", color = DIM)
-        x = x + c.text_width(date, "4x5") + 3
-        # 4x5's W reads as an H at this size; 5x5 is the same ink height
-        # with a proper 5-column W.
-        c.text(letter, x, y, font = "5x5", color = lcolor)
-        x = x + c.text_width(letter, "5x5") + 3
+        col = "gray" if tied else ("green" if won else "red")
+        c.hline(x, 9, 30, col)
+        crest(c, opp["abbr"], x + 4, 12, "s")
         score = me["score"] + "-" + opp["score"]
-        c.text(score, x, y, font = "4x5", color = INK)
-        x = x + c.text_width(score, "4x5") + 3
-        tail = ("VS " if g["mine_at_home"] else "AT ") + opp["abbr"]
-        c.text(clip(c, tail, "4x5", 106 - x), x, y, font = "4x5", color = DIM)
-        y = y + 7
+        sw = c.text_width(score, "4x5")
+        total = sw + (7 if g["mine_at_home"] else 0)
+        sx = x + (30 - total) // 2
+        if g["mine_at_home"]:
+            c.sprite(HOUSE, sx, 26, color = DIM)
+            sx = sx + 7
+        c.text(clip(c, score, "4x5", 30), sx, 26, font = "4x5", color = col)
+        x = x + 34
 
     # Right of the divider: the hand-drawn crest + season record hero.
     # x141 leaves 44px, so "10-3" (42px at 10x16) keeps the hero font.
