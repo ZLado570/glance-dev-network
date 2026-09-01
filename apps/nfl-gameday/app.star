@@ -2,10 +2,11 @@
 # a 2px accent rail at the far left, a team-color chip carrying the nickname,
 # and a quiet 4x5 page label — so the app reads as one unit in the scroll
 # stream and identifies itself before its data does. Page 1 is a game card:
-# both club crests at 24px facing a single hero (the score when the game is
-# live or final, the local kickoff time when it isn't), records under the
-# abbreviations, the broadcaster's pixel mark and the betting line in the
-# footline. Page 2 is the
+# both clubs' hand-drawn 38x20 crests facing a single hero (the score when
+# the game is live or final, the local kickoff time when it isn't) — the
+# crest IS the label, no abbreviations — with season records tucked under
+# each crest's inner corner and the broadcaster's pixel mark and betting
+# line in the footline. Page 2 is the
 # last three results as W/L rows beside a right-hand record hero. Page 3 is
 # the injury report, worst news first, three rows at a time. Black ground
 # throughout; white for live numbers, gray for labels, green/amber/red kept
@@ -604,15 +605,19 @@ def tint(c, accent):
     c.gradient_rect(2, 0, 191, 18, color.dim(accent, 12), "black",
                     horizontal = False)
 
-def crest(c, stem_or_abbr, x, y, size):
-    """A club crest at its authored size — or the abbreviation as text when
-    we have no crest for it (Pro Bowl sides, TBD opponents)."""
-    stem = STEM_BY_ABBR.get(stem_or_abbr, "")
+CREST_W = {"m": 38, "s": 22}
+CREST_H = {"m": 20, "s": 12}
+
+def crest(c, abbr, x, y, kind):
+    """A hand-drawn club crest at its authored size — "m" (38x20) on the game
+    card, "s" (22x12) in lists — or the abbreviation as text when we have no
+    art for it (Pro Bowl sides, TBD opponents)."""
+    stem = STEM_BY_ABBR.get(abbr, "")
     if stem != "":
-        c.image(stem + str(size) + ".png", x, y)
+        c.image(stem + kind + ".png", x, y)
         return
-    c.text(clip(c, stem_or_abbr, "5x7", size + 4), x, y + (size - 7) // 2,
-           font = "5x7", color = DIM)
+    c.text(clip(c, abbr, "5x7", CREST_W[kind]), x + 2,
+           y + (CREST_H[kind] - 7) // 2, font = "5x7", color = DIM)
 
 def game(c, ctx):
     team = my_team(ctx)
@@ -651,55 +656,55 @@ def game(c, ctx):
             when_day = "TODAY"
         chrome(c, team, "GAMEDAY", when_day, INK)
 
-    # Matchup band, away at home's place: crests just inside the safe zone,
-    # abbreviations + records beside them, one hero in the middle. Each side
+    # Matchup band, away at home's place: the hand-drawn 38x20 crests ARE the
+    # identity — no abbreviations, the picture is the label. Season records
+    # tuck under each crest's inner corner; one hero in the middle. Each side
     # sits on a near-black wash of its own club color.
     away, home = ev["away"], ev["home"]
     wash(c, 2, 78, accent_of(away["abbr"]), False)
     wash(c, 114, 189, accent_of(home["abbr"]), True)
-    crest(c, away["abbr"], SAFE_L, 8, 24)
-    crest(c, home["abbr"], SAFE_R - 23, 8, 24)
+    crest(c, away["abbr"], 5, 8, "m")
+    crest(c, home["abbr"], SAFE_R - 37, 8, "m")
 
-    a_color = INK
-    h_color = INK
-    if state == "post":
-        # Past game: the loser dims, the winner keeps full white.
-        if away["winner"] and not home["winner"]:
-            h_color = DIM
-        if home["winner"] and not away["winner"]:
-            a_color = DIM
-    c.text(clip(c, away["abbr"], "6x8", 22), 33, 10, font = "6x8", color = a_color)
-    c.text(clip(c, home["abbr"], "6x8", 22), 159, 10, font = "6x8",
-           color = h_color, align = "right")
-    if away["record"] != "":
-        c.text(clip(c, away["record"], "4x5", 26), 33, 21, font = "4x5", color = DIM)
-    if home["record"] != "":
-        c.text(clip(c, home["record"], "4x5", 26), 159, 21, font = "4x5",
-               color = DIM, align = "right")
+    # Records at x44../..x146, y24 — clear of the footline band, which is
+    # capped at 60px (x66..126) so the two can never meet.
+    arec = clip(c, away["record"], "4x5", 20)
+    hrec = clip(c, home["record"], "4x5", 20)
+    a_win = state == "post" and away["winner"] and not home["winner"]
+    h_win = state == "post" and home["winner"] and not away["winner"]
+    if arec != "":
+        c.text(arec, 44, 24, font = "4x5", color = DIM if h_win else INK)
+        if a_win:
+            aw = c.text_width(arec, "4x5")
+            c.rect(44 + aw + 3, 25, 44 + aw + 4, 26, fill = "green")
+    if hrec != "":
+        c.text(hrec, 146, 24, font = "4x5",
+               color = DIM if a_win else INK, align = "right")
+        if h_win:
+            hw = c.text_width(hrec, "4x5")
+            c.rect(146 - hw - 5, 25, 146 - hw - 4, 26, fill = "green")
 
-    # Live: a football beside whoever has the ball. The hero's widest case
-    # ("45-42", 53px around x96) still leaves 5px before the home-side ball.
+    # Live: a football under the possessing side's crest, above its record.
     if state == "in" and ev["possession"] != "":
         if ev["possession"] == away["id"]:
-            aw = c.text_width(away["abbr"], "6x8")
-            c.sprite(BALL, 33 + aw + 3, 12, color = BALL_C)
+            c.sprite(BALL, 44, 17, color = BALL_C)
         if ev["possession"] == home["id"]:
-            hw = c.text_width(home["abbr"], "6x8")
-            c.sprite(BALL, 159 - hw - 9, 12, color = BALL_C)
+            c.sprite(BALL, 140, 17, color = BALL_C)
 
-    # Center hero + footline. 62..130 is what's left between the abbr blocks;
-    # "45-42" at 10x16 is 54px, so the ladder only drops for weird strings.
+    # Center hero + footline, both capped at ~60px so they clear the records
+    # under the crests' inner corners. "45-42" at 10x16 is 54px, so the
+    # ladder only drops for weird strings (a 12:00P kickoff goes 6x8).
     # The hero sits at y8 so the 7px footline band (y25..31) keeps a 1px gap.
     if state == "pre":
-        f, t = fit(c, parts[2], ["10x16", "6x8"], 66)
+        f, t = fit(c, parts[2], ["10x16", "6x8"], 61)
         c.text(t, 96, 8 + (16 - FONTH[f]) // 2, font = f, color = INK,
                align = "center")
         # Footline: the broadcaster's mark + the betting line, centered as
-        # one unit. When both can't fit the 68px, the mark wins the pixels.
+        # one unit. When both can't fit the 60px, the mark wins the pixels.
         netw = draw_tv(c, ev["network"], 0, 0, dry = True)
         oddsw = c.text_width(ev["odds"], "4x5") if ev["odds"] != "" else 0
         total = netw + (3 + oddsw if netw > 0 and oddsw > 0 else oddsw)
-        if total > 68 and netw > 0:
+        if total > 60 and netw > 0:
             oddsw = 0
             total = netw
         if netw > 0:
@@ -713,18 +718,18 @@ def game(c, ctx):
                 foot = foot + ("  " if foot != "" else "") + ev["odds"]
             if foot == "":
                 foot = "AT " + home["abbr"]
-            c.text(clip(c, foot, "4x5", 66), 96, 26, font = "4x5", color = DIM,
+            c.text(clip(c, foot, "4x5", 60), 96, 26, font = "4x5", color = DIM,
                    align = "center")
     else:
-        f, t = fit(c, away["score"] + "-" + home["score"], ["10x16", "6x8"], 66)
+        f, t = fit(c, away["score"] + "-" + home["score"], ["10x16", "6x8"], 61)
         c.text(t, 96, 8 + (16 - FONTH[f]) // 2, font = f, color = INK,
                align = "center")
         if state == "in":
             foot = ev["down"] if ev["down"] != "" else ev["detail"]
-            c.text(clip(c, foot, "4x5", 66), 96, 26, font = "4x5",
+            c.text(clip(c, foot, "4x5", 60), 96, 26, font = "4x5",
                    color = "amber", align = "center")
         else:
-            c.text(clip(c, parts[1], "4x5", 66), 96, 26, font = "4x5",
+            c.text(clip(c, parts[1], "4x5", 60), 96, 26, font = "4x5",
                    color = DIM, align = "center")
 
 def results(c, ctx):
@@ -788,14 +793,14 @@ def results(c, ctx):
         c.text(clip(c, tail, "4x5", 106 - x), x, y, font = "4x5", color = DIM)
         y = y + 7
 
-    # Right of the divider: crest + season record hero. x136 leaves 49px,
-    # so "10-3" (43px at 10x16) keeps the hero font.
+    # Right of the divider: the hand-drawn crest + season record hero.
+    # x141 leaves 44px, so "10-3" (42px at 10x16) keeps the hero font.
     c.vline(110, 8, 24, STRUCT)
-    crest(c, team_abbr_of(team), 116, 12, 16)
+    crest(c, team_abbr_of(team), 115, 9, "s")
     hero = record if record != "" else "0-0"
-    f, t = fit(c, hero, ["10x16", "6x8"], SAFE_R - 136)
-    c.text(t, 136, 10 + (16 - FONTH[f]) // 2, font = f, color = INK)
-    c.text(clip(c, "RECORD", "4x5", SAFE_R - 136), 136, 27, font = "4x5",
+    f, t = fit(c, hero, ["10x16", "6x8"], SAFE_R - 141)
+    c.text(t, 141, 10 + (16 - FONTH[f]) // 2, font = f, color = INK)
+    c.text(clip(c, "RECORD", "4x5", SAFE_R - 141), 141, 27, font = "4x5",
            color = DIM)
 
 def team_abbr_of(team):
